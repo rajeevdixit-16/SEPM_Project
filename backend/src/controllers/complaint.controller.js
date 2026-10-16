@@ -58,14 +58,10 @@ export const createComplaint = asyncHandler(async (req, res) => {
     throw new ApiError(400, aiResult.mismatchReason || "The uploaded image and description appear to describe different issues. Please ensure the description matches what is visible in the image.");
   }
 
-  if (aiResult.aiUnavailable) {
-    throw new ApiError(503, "AI image verification is temporarily unavailable. Please try again later.");
-  }
-
   const aiCategory = aiResult.category;
   const aiSeverity = aiResult.severity;
   const aiKeywords = aiResult.keywords;
-  const aiStatus = "ai";
+  const aiStatus = aiResult.source === "fallback" ? "fallback" : "ai";
   const aiConfidence = aiResult.confidence;
 
 
@@ -316,14 +312,11 @@ export const updateComplaint = asyncHandler(async (req, res) => {
     throw new ApiError(400, aiResult.mismatchReason || "The uploaded image and description appear to describe different issues. Please ensure the description matches what is visible in the image.");
   }
 
-  if (aiResult.aiUnavailable) {
-    throw new ApiError(503, "AI image verification is temporarily unavailable. Please try again later.");
-  }
-
   complaint.aiCategory = aiResult.category;
   complaint.aiSeverity = aiResult.severity;
   complaint.aiKeywords = aiResult.keywords;
   complaint.aiConfidence = aiResult.confidence;
+  complaint.aiStatus = aiResult.source === "fallback" ? "fallback" : "ai";
   complaint.priorityScore = calculatePriority(complaint);
 
   await complaint.save();

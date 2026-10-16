@@ -8,6 +8,12 @@ const GPS_STORAGE_KEY = "civicfix-gps-location";
 // app shows a location from a previous session/area (e.g. the wrong ward/city).
 const GPS_MAX_AGE_MS = 5 * 60 * 1000;
 
+// Fixes this imprecise (in metres) are unusable for street-level reporting and
+// are virtually always a coarse network/IP estimate or a browser location
+// override, not real GPS. Trusting them shows the wrong city/ward (e.g. a fix
+// 200 km away), so we reject them and ask the user to pick a location instead.
+const GPS_MAX_ACCURATE_METERS = 2000;
+
 function loadPersistedGps() {
   try {
     const raw = localStorage.getItem(GPS_STORAGE_KEY);
@@ -21,6 +27,14 @@ function loadPersistedGps() {
       return null;
     }
     if (parsed.timestamp && Date.now() - parsed.timestamp > GPS_MAX_AGE_MS) {
+      localStorage.removeItem(GPS_STORAGE_KEY);
+      return null;
+    }
+    // Drop previously stored coarse fixes (they may be hundreds of km off).
+    if (
+      typeof parsed.accuracy === "number" &&
+      parsed.accuracy > GPS_MAX_ACCURATE_METERS
+    ) {
       localStorage.removeItem(GPS_STORAGE_KEY);
       return null;
     }
@@ -90,11 +104,27 @@ export function useGeolocation() {
 
         const { latitude, longitude, accuracy } = position.coords;
 
-        persistGps(latitude, longitude, accuracy);
-
         console.log("[GPS] latitude:", latitude);
         console.log("[GPS] longitude:", longitude);
         console.log("[GPS] accuracy (meters):", accuracy);
+
+        if (!Number.isFinite(accuracy) || accuracy > GPS_MAX_ACCURATE_METERS) {
+          console.warn("[GPS] Imprecise fix rejected:", accuracy, "m");
+          setGpsState({
+            gpsAvailable: false,
+            gpsLoading: false,
+            gpsAccuracy: accuracy,
+            currentCity: null,
+            currentWard: null,
+            gpsError:
+              "Your device returned an imprecise location (about " +
+              Math.round((accuracy || 0) / 1000) +
+              " km off). Enable precise location / turn off any VPN, or pick your location on the map.",
+          });
+          return;
+        }
+
+        persistGps(latitude, longitude, accuracy);
 
         setGpsState({
           gpsLocation: { lat: latitude, lng: longitude },
@@ -158,7 +188,7 @@ export function useGeolocation() {
           gpsLoading: false,
         });
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   }, [setGpsState]);
 
@@ -180,6 +210,11 @@ export function useGeolocation() {
         (position) => {
           if (!mountedRef.current) return;
           const { latitude, longitude, accuracy } = position.coords;
+          // Ignore coarse updates so a streaming wrong fix cannot override a
+          // previously accepted accurate one.
+          if (!Number.isFinite(accuracy) || accuracy > GPS_MAX_ACCURATE_METERS) {
+            return;
+          }
           persistGps(latitude, longitude, accuracy);
           setGpsState({
             gpsLocation: { lat: latitude, lng: longitude },
@@ -189,7 +224,7 @@ export function useGeolocation() {
           });
         },
         () => {},
-        { enableHighAccuracy: true, maximumAge: 60000 }
+        { enableHighAccuracy: true, maximumAge: 0 }
       );
     }
 

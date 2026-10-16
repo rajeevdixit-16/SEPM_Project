@@ -2,13 +2,11 @@ import crypto from "crypto";
 import bcrypt from "bcrypt";
 import { OAuth2Client } from "google-auth-library";
 
-
 import { User } from "../models/user.model.js"; // whatever file name is
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
 
 import { generateOTP } from "../utils/generateOtp.js";
 import { sendEmail } from "../utils/sendEmail.js";
@@ -39,12 +37,18 @@ export const googleAuth = asyncHandler(async (req, res) => {
 
   // Block deactivated accounts
   if (user && !user.isActive) {
-    throw new ApiError(403, "Account has been deactivated. Contact administrator.");
+    throw new ApiError(
+      403,
+      "Account has been deactivated. Contact administrator."
+    );
   }
 
   // Block admin OAuth entirely
   if (user && user.role === "admin") {
-    throw new ApiError(403, "Admin accounts must sign in using email and password.");
+    throw new ApiError(
+      403,
+      "Admin accounts must sign in using email and password."
+    );
   }
 
   if (user) {
@@ -74,30 +78,30 @@ export const googleAuth = asyncHandler(async (req, res) => {
   }
 
   const accessToken = user.generateAccessToken();
-  const refreshToken = crypto.randomBytes(40).toString("hex");
-
-  await user.addRefreshSession(
-    refreshToken,
+  const refreshToken = await user.addRefreshSession(
     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     req.headers["user-agent"],
     req.ip
   );
 
   return res.json(
-    new ApiResponse(200, {
-      user: {
-        id: user._id,
-        email: user.email,
-        role: user.role,
-        wardId: user.wardId,
+    new ApiResponse(
+      200,
+      {
+        user: {
+          id: user._id,
+          email: user.email,
+          role: user.role,
+          wardId: user.wardId,
+        },
+        accessToken,
+        refreshToken,
+        isNewUser,
       },
-      accessToken,
-      refreshToken,
-      isNewUser,
-    }, isNewUser ? "Account created successfully" : "Welcome back")
+      isNewUser ? "Account created successfully" : "Welcome back"
+    )
   );
 });
-
 
 export const register = asyncHandler(async (req, res) => {
   const { name, email, password, role, wardId } = req.body;
@@ -107,7 +111,10 @@ export const register = asyncHandler(async (req, res) => {
 
   // Authority accounts cannot self-register
   if (role === "authority") {
-    throw new ApiError(403, "Authority accounts are created by administrators. Please contact your municipal corporation.");
+    throw new ApiError(
+      403,
+      "Authority accounts are created by administrators. Please contact your municipal corporation."
+    );
   }
 
   if (role !== "citizen") {
@@ -145,16 +152,20 @@ export const register = asyncHandler(async (req, res) => {
 
   await sendEmail(
     email,
-    "CivicFix AI – Email Verification OTP",
+    "Civicfix – Email Verification OTP",
     `<h2>Your OTP is: <b>${otp}</b></h2>`
   );
 
-  return res.json(new ApiResponse(200,
-    {
-      email,
-      role: "citizen",
-    }
-    , "OTP sent to email"));
+  return res.json(
+    new ApiResponse(
+      200,
+      {
+        email,
+        role: "citizen",
+      },
+      "OTP sent to email"
+    )
+  );
 });
 
 export const verifyOtp = asyncHandler(async (req, res) => {
@@ -192,27 +203,29 @@ export const verifyOtp = asyncHandler(async (req, res) => {
 export const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-  if (!email || !password)
-    throw new ApiError(400, "Email & password required");
+  if (!email || !password) throw new ApiError(400, "Email & password required");
 
   const user = await User.findOne({ email });
   if (!user) throw new ApiError(400, "Invalid credentials");
   if (!user.isVerified)
     throw new ApiError(401, "Please verify your email first");
   if (!user.isActive)
-    throw new ApiError(403, "Account has been deactivated. Contact administrator.");
+    throw new ApiError(
+      403,
+      "Account has been deactivated. Contact administrator."
+    );
   if (!user.providers.includes("local"))
-    throw new ApiError(400, "This account uses Google login. Please sign in with Google.");
+    throw new ApiError(
+      400,
+      "This account uses Google login. Please sign in with Google."
+    );
 
   const isMatch = await user.isPasswordCorrect(password);
   if (!isMatch) throw new ApiError(400, "Invalid credentials");
 
   const accessToken = user.generateAccessToken();
 
-  const refreshToken = crypto.randomBytes(40).toString("hex");
-
-  await user.addRefreshSession(
-    refreshToken,
+  const refreshToken = await user.addRefreshSession(
     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     req.headers["user-agent"],
     req.ip
@@ -226,7 +239,7 @@ export const login = asyncHandler(async (req, res) => {
           id: user._id,
           email: user.email,
           role: user.role,
-          wardId: user.wardId
+          wardId: user.wardId,
         },
         accessToken,
         refreshToken,
@@ -249,36 +262,46 @@ export const refreshAccessToken = asyncHandler(async (req, res) => {
 
   if (!refreshToken) throw new ApiError(401, "Refresh token required");
 
-  // Get all users with refresh sessions
-  const users = await User.find({ "refreshSessions.0": { $exists: true } });
+  const [sessionId, secret] = String(refreshToken).split(".");
+  if (!sessionId || !secret) throw new ApiError(401, "Invalid refresh token");
 
-  let foundUser = null;
-  let foundSession = null;
+  // O(1) user lookup via the embedded session id (no full-collection scan)
+  const user = await User.findOne({ "refreshSessions._id": sessionId });
+  if (!user) throw new ApiError(401, "Invalid refresh token");
 
-  for (const user of users) {
-    for (const session of user.refreshSessions) {
-      const match = await bcrypt.compare(refreshToken, session.tokenHash);
+  if (!user.isActive)
+    throw new ApiError(
+      403,
+      "Account has been deactivated. Contact administrator."
+    );
 
-      if (match) {
-        foundUser = user;
-        foundSession = session;
-        break;
-      }
-    }
+  const session = user.refreshSessions.id(sessionId);
+  if (!session) throw new ApiError(401, "Invalid refresh token");
 
-    if (foundUser) break;
+  const match = await bcrypt.compare(secret, session.tokenHash);
+  if (!match) throw new ApiError(401, "Invalid refresh token");
+
+  if (session.expiresAt < new Date()) {
+    session.deleteOne();
+    await user.save();
+    throw new ApiError(401, "Refresh token expired");
   }
 
-  if (!foundUser) throw new ApiError(401, "Invalid refresh token");
+  // Rotate the refresh token: issue a new secret for the same session.
+  const newSecret = crypto.randomBytes(40).toString("hex");
+  session.tokenHash = await bcrypt.hash(newSecret, 10);
+  session.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  await user.save();
 
-  if (foundSession.expiresAt < new Date())
-    throw new ApiError(401, "Refresh token expired");
-
-  // generate new access token
-  const accessToken = foundUser.generateAccessToken();
+  const accessToken = user.generateAccessToken();
+  const newRefreshToken = `${session._id.toString()}.${newSecret}`;
 
   return res.json(
-    new ApiResponse(200, { accessToken }, "Access token refreshed")
+    new ApiResponse(
+      200,
+      { accessToken, refreshToken: newRefreshToken },
+      "Access token refreshed"
+    )
   );
 });
 
@@ -287,18 +310,20 @@ export const logout = asyncHandler(async (req, res) => {
 
   if (!refreshToken) throw new ApiError(400, "Refresh token required");
 
-  const user = await User.findById(req.user._id);
+  const [sessionId, secret] = String(refreshToken).split(".");
 
-  user.refreshSessions = await Promise.all(
-    user.refreshSessions.map(async (s) => {
-      const match = await bcrypt.compare(refreshToken, s.tokenHash);
-      return match ? null : s;
-    })
-  );
+  if (sessionId && secret) {
+    const user = await User.findById(req.user._id);
 
-  user.refreshSessions = user.refreshSessions.filter(Boolean);
+    if (user) {
+      const session = user.refreshSessions.id(sessionId);
 
-  await user.save();
+      if (session && (await bcrypt.compare(secret, session.tokenHash))) {
+        session.deleteOne();
+        await user.save();
+      }
+    }
+  }
 
   return res.json(new ApiResponse(200, null, "Logged out successfully"));
 });

@@ -1,4 +1,5 @@
 import mongoose, { Schema } from "mongoose";
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 
@@ -118,15 +119,13 @@ userSchema.methods.generateAccessToken = function () {
   );
 };
 
-userSchema.methods.addRefreshSession = async function (
-  rawToken,
-  expiresAt,
-  device,
-  ip
-) {
-  const tokenHash = await bcrypt.hash(rawToken, 10);
+userSchema.methods.addRefreshSession = async function (expiresAt, device, ip) {
+  const sessionId = new mongoose.Types.ObjectId();
+  const rawSecret = crypto.randomBytes(40).toString("hex");
+  const tokenHash = await bcrypt.hash(rawSecret, 10);
 
   this.refreshSessions.push({
+    _id: sessionId,
     tokenHash,
     expiresAt,
     device,
@@ -134,6 +133,9 @@ userSchema.methods.addRefreshSession = async function (
   });
 
   await this.save();
+
+  // The client receives "<sessionId>.<secret>" so it can be looked up in O(1).
+  return `${sessionId.toString()}.${rawSecret}`;
 };
 
 export const User = mongoose.model("User", userSchema);

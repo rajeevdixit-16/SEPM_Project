@@ -126,7 +126,7 @@ export function ComplaintManagement() {
 
         {/* MAIN */}
         <main className="flex-1 p-8 overflow-y-auto">
-          <div className="flex justify-between items-center mb-8">
+          <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
               Ward Management
             </h1>
@@ -134,6 +134,69 @@ export function ComplaintManagement() {
               Showing {filteredIssues.length} of {complaints.length} active
               issues
             </div>
+          </div>
+
+          {/* FILTER BAR */}
+          <div className="mb-6 flex flex-wrap items-center gap-3">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by category..."
+              className="flex-1 min-w-[180px] px-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500"
+            />
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="px-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500"
+            >
+              <option value="">All Categories</option>
+              {[
+                "garbage",
+                "road",
+                "drainage",
+                "lighting",
+                "water",
+                "traffic",
+                "infrastructure",
+                "obstruction",
+                "other",
+              ].map((c) => (
+                <option key={c} value={c}>
+                  {c.charAt(0).toUpperCase() + c.slice(1)}
+                </option>
+              ))}
+            </select>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500"
+            >
+              <option value="">All Statuses</option>
+              <option value="submitted">Submitted</option>
+              <option value="acknowledged">Acknowledged</option>
+              <option value="in_progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+            </select>
+            <select
+              value={filterPriority}
+              onChange={(e) => setFilterPriority(e.target.value)}
+              className="px-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500"
+            >
+              <option value="">All Priorities</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500"
+            >
+              <option value="priority">Sort: Priority</option>
+              <option value="date">Sort: Newest</option>
+              <option value="upvotes">Sort: Most Upvoted</option>
+            </select>
           </div>
 
           {/* TABLE SECTION - FIXED FOR LIGHT MODE */}

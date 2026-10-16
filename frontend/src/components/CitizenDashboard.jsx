@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Plus,
   MapPin,
@@ -24,7 +24,6 @@ import { Button } from "./Button";
 import { Card } from "./Card";
 import { Badge } from "./Badge";
 import { useAppStore } from "../store/useAppStore";
-import { useAuthStore } from "../store/useAuthStore";
 import { complaintService } from "../services/complaint.service";
 
 import toast from "react-hot-toast";
@@ -97,18 +96,8 @@ export function CitizenDashboard() {
   const onViewIssue = useAppStore((state) => state.viewIssue);
   const setEditingIssue = useAppStore((state) => state.setEditingIssue);
   const gpsLocation = useAppStore((state) => state.gpsLocation);
-  const gpsAvailable = useAppStore((state) => state.gpsAvailable);
 
-  const user = useAuthStore((state) => state.user);
-
-  // --- Fetch my reports ---
-  useEffect(() => {
-    if (activeTab === "my-reports") {
-      fetchMyReports();
-    }
-  }, [activeTab]);
-
-  const fetchMyReports = async () => {
+  const fetchMyReports = useCallback(async () => {
     try {
       setLoading(true);
       const res = await complaintService.getMyComplaints();
@@ -118,16 +107,9 @@ export function CitizenDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // --- Fetch community issues when scope changes ---
-  useEffect(() => {
-    if (activeTab === "community") {
-      fetchCommunity();
-    }
-  }, [activeTab, scope, gpsLocation]);
-
-  const fetchCommunity = async () => {
+  const fetchCommunity = useCallback(async () => {
     try {
       setCommunityLoading(true);
       const params = { scope };
@@ -144,7 +126,21 @@ export function CitizenDashboard() {
     } finally {
       setCommunityLoading(false);
     }
-  };
+  }, [scope, gpsLocation]);
+
+  // --- Fetch my reports ---
+  useEffect(() => {
+    if (activeTab === "my-reports") {
+      fetchMyReports();
+    }
+  }, [activeTab, fetchMyReports]);
+
+  // --- Fetch community issues when scope changes ---
+  useEffect(() => {
+    if (activeTab === "community") {
+      fetchCommunity();
+    }
+  }, [activeTab, fetchCommunity]);
 
   // --- My Reports actions ---
   const handleDelete = async (e, id) => {

@@ -32,9 +32,10 @@ export function AuthorityDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
+    let cancelled = false;
     fetchAuthorityDashboard()
       .then((res) => {
+        if (cancelled) return;
         // Stats from backend
         setStats(res.data.stats);
         // Combined list for recent activity
@@ -43,16 +44,13 @@ export function AuthorityDashboard() {
         setHighPriorityList(res.data.highPriorityIssues || []);
       })
       .catch(console.error)
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
-
-  // Filter for overdue issues (pending > 5 days)
-  const overdueIssues = highPriorityList.filter((issue) => {
-    const daysOpen =
-      (Date.now() - new Date(issue.createdAt).getTime()) /
-      (1000 * 60 * 60 * 24);
-    return daysOpen > 5;
-  });
 
   const formatDate = (dateString) => {
     return new Intl.DateTimeFormat("en-IN", {

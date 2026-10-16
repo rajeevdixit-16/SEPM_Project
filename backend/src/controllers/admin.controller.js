@@ -65,7 +65,6 @@ export const updateComplaintStatus = asyncHandler(async (req, res) => {
 
   complaint.status = status;
   complaint.authorityRemarks = remarks || complaint.authorityRemarks;
-  complaint.statusUpdatedAt = new Date();
 
   if (status === "resolved") {
     complaint.resolvedAt = new Date();

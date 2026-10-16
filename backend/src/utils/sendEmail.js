@@ -10,7 +10,7 @@ export const sendEmail = async (to, subject, html) => {
   });
 
   await transporter.sendMail({
-    from: `"CivicFix AI" <${process.env.EMAIL_USER}>`,
+    from: `"Civicfix" <${process.env.EMAIL_USER}>`,
     to,
     subject,
     html,

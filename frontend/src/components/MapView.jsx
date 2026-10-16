@@ -80,7 +80,6 @@ const STATUS_COLORS = {
 };
 
 function categoryIconSvg(category) {
-  const color = encodeURIComponent(CATEGORY_COLORS[category] || "#6b7280");
   const fill = "%23fff";
   let path;
   switch (category) {
@@ -292,10 +291,8 @@ export function MapView() {
   const [selectedRadius, setSelectedRadius] = useState(5);
   const [showRadiusMenu, setShowRadiusMenu] = useState(false);
   const [searchLocation, setSearchLocation] = useState(null);
-  const [highlightedId, setHighlightedId] = useState(null);
   const [bottomSheetOpen, setBottomSheetOpen] = useState(false);
   const [supportingId, setSupportingId] = useState(null);
-  const feedRef = useRef(null);
 
   const navigate = useAppStore((state) => state.navigate);
   const setCurrentAddress = useAppStore((state) => state.setCurrentAddress);
@@ -305,7 +302,7 @@ export function MapView() {
   const gpsLocation = useAppStore((state) => state.gpsLocation);
   const gpsAvailable = useAppStore((state) => state.gpsAvailable);
   const gpsAccuracy = useAppStore((state) => state.gpsAccuracy);
-  const currentWard = useAppStore((state) => state.currentWard);
+  const gpsError = useAppStore((state) => state.gpsError);
   const currentCity = useAppStore((state) => state.currentCity);
   const onViewIssue = useAppStore((state) => state.viewIssue);
   const currentAddress = useAppStore((state) => state.currentAddress);
@@ -314,34 +311,29 @@ export function MapView() {
   const categories = ["GARBAGE", "ROAD", "LIGHTING", "DRAINAGE", "WATER", "TRAFFIC", "INFRASTRUCTURE", "OBSTRUCTION", "OTHER"];
   const statuses = ["submitted", "acknowledged", "in_progress", "resolved"];
 
-  const defaultCenter = selectedLocation
-    ? [selectedLocation.lat, selectedLocation.lng]
-    : gpsLocation
-    ? [gpsLocation.lat, gpsLocation.lng]
-    : [25.4358, 81.8463];
+  const defaultCenter = useMemo(
+    () =>
+      selectedLocation
+        ? [selectedLocation.lat, selectedLocation.lng]
+        : gpsLocation
+        ? [gpsLocation.lat, gpsLocation.lng]
+        : [25.4358, 81.8463],
+    [selectedLocation, gpsLocation]
+  );
 
-  useEffect(() => {
-    fetchLiveIssues();
-  }, [selectedRadius, searchLocation]);
-
-  useEffect(() => {
-    if (selectedLocation && mapInstance) {
-      mapInstance.setView([selectedLocation.lat, selectedLocation.lng], 14);
-    } else if (gpsLocation && mapInstance && !selectedLocation) {
-      mapInstance.setView([gpsLocation.lat, gpsLocation.lng], 13);
-    }
-  }, [mapInstance, selectedLocation, gpsLocation]);
-
-  const fetchLiveIssues = async () => {
+  const fetchLiveIssues = useCallback(async () => {
     try {
       setLoading(true);
       const params = {};
-      const center = gpsLocation || searchLocation?.lat ? searchLocation : null;
+      const center =
+        gpsLocation || (searchLocation?.lat ? searchLocation : null);
       if (center && sortBy === "nearby") {
         params.lat = center.lat;
         params.lng = center.lng;
         params.scope = "nearby";
         params.radius = selectedRadius;
+      } else if (sortBy === "trending") {
+        params.scope = "trending";
       }
       const res = await complaintService.getAllComplaints(params);
       if (res.success) setIssues(res.data);
@@ -350,7 +342,19 @@ export function MapView() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [gpsLocation, searchLocation, sortBy, selectedRadius]);
+
+  useEffect(() => {
+    fetchLiveIssues();
+  }, [fetchLiveIssues]);
+
+  useEffect(() => {
+    if (selectedLocation && mapInstance) {
+      mapInstance.setView([selectedLocation.lat, selectedLocation.lng], 14);
+    } else if (gpsLocation && mapInstance && !selectedLocation) {
+      mapInstance.setView([gpsLocation.lat, gpsLocation.lng], 13);
+    }
+  }, [mapInstance, selectedLocation, gpsLocation]);
 
   const handleLocationSelect = useCallback(
     async (lat, lng) => {
@@ -372,7 +376,7 @@ export function MapView() {
           "Location Selected";
         setCurrentAddress(locationName);
         setSelectedLocation({ lat, lng });
-      } catch (error) {
+      } catch {
         console.warn("Geocoding failed, falling back to coordinates");
         setCurrentAddress(`Location (${lat.toFixed(3)}, ${lng.toFixed(3)})`);
       } finally {
@@ -485,15 +489,7 @@ export function MapView() {
     return { total, resolved, active, resolvedThisMonth, topCategory: topCat ? CATEGORY_LABELS[topCat[0]] || topCat[0] : "—", avgSupport };
   }, [issues]);
 
-  const clearFilters = () => {
-    setFilterCategory("");
-    setFilterStatus("");
-  };
-
   const hasActiveFilters = filterCategory || filterStatus;
-
-  // --- Mobile bottom sheet handlers ---
-  const bottomSheetHeight = bottomSheetOpen ? "h-2/3" : "h-20";
 
   return (
     <div className="h-screen bg-slate-50 dark:bg-slate-950 flex flex-col overflow-hidden transition-colors">
@@ -983,6 +979,12 @@ export function MapView() {
                 ? `Viewing around ${currentCity}`
                 : "Viewing all areas"}
             </div>
+            {gpsError && (
+              <div className="mt-1.5 flex items-start gap-1.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                <TriangleAlert size={11} className="mt-0.5 shrink-0" />
+                <span>{gpsError}</span>
+              </div>
+            )}
           </div>
 
           {detailIssue ? (
@@ -1116,13 +1118,8 @@ export function MapView() {
                       setBottomSheetOpen(false);
                     }}
                     className={`p-0 overflow-hidden border-slate-200 dark:border-slate-700 cursor-pointer hover:border-blue-500 transition-all ${
-                      highlightedId === issue._id
-                        ? "ring-2 ring-blue-500 shadow-lg shadow-blue-200 dark:shadow-blue-900/30 scale-[1.02]"
-                        : selectedIssue?._id === issue._id
-                        ? "ring-2 ring-blue-500"
-                        : ""
+                      selectedIssue?._id === issue._id ? "ring-2 ring-blue-500" : ""
                     }`}
-                    ref={highlightedId === issue._id ? (el) => el?.scrollIntoView({ behavior: "smooth", block: "center" }) : undefined}
                   >
                     <div className="flex">
                       {issue.imageUrl && (

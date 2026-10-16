@@ -23,8 +23,6 @@ import {
   deactivateAuthority,
 } from "../services/admin.service";
 import { fetchWards, fetchCities } from "../services/ward.service";
-import { useAppStore } from "../store/useAppStore";
-import { useAuthStore } from "../store/useAuthStore";
 
 const SIDEBAR_ITEMS = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -284,7 +282,21 @@ export function AdminDashboard({ onNavigate, onLogout }) {
   };
 
   useEffect(() => {
-    if (activeTab === "authorities") loadAuthorities();
+    if (activeTab !== "authorities") return;
+
+    let cancelled = false;
+    getAuthorities()
+      .then((res) => {
+        if (!cancelled) setAuthorities(res.data || []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [activeTab]);
 
   const handleDeactivate = async (id) => {

@@ -3,7 +3,6 @@ import { ArrowLeft } from "lucide-react";
 import { Card } from "./Card";
 import { Button } from "./Button";
 import { useAppStore } from "../store/useAppStore";
-import { useAuthStore } from "../store/useAuthStore";
 import { verifyOtp } from "../services/auth.service.js";
 import toast from "react-hot-toast";
 
@@ -11,7 +10,6 @@ export default function VerifyOtp() {
   const [otp, setOtp] = useState("");
 
   const navigate = useAppStore((s) => s.navigate);
-  const login = useAuthStore((s) => s.login);
 
   const handleVerifyOtp = async (e) => {
   e.preventDefault();
@@ -26,17 +24,7 @@ export default function VerifyOtp() {
 
   try {
     const data = await verifyOtp({ email, otp });
-    console.log(data);
-    login(data.data.user.role);
-    console.log(data);
     sessionStorage.clear();
-    console.log(data);
-
-    // navigate(
-    //   data.data.user.role === "authority"
-    //     ? "authority-dashboard"
-    //     : "citizen-dashboard"
-    // );
     toast.success(data.message);
     navigate("login");
   } catch (err) {

@@ -2,11 +2,6 @@ export const mockIssues = [
   {
     id: 1,
     title: "Major Pothole",
-    location: {
-      address: "Hazratganj, Lucknow",
-      lat: 26.85,
-      lng: 80.95,
-    },
     priority: "high",
     status: "in-progress",
     location: {

@@ -56,7 +56,7 @@ export function Login({ isSignup }) {
         <Card className="p-8 border-border-default">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold tracking-tight text-text-primary">
-              {isSignup ? "Join CivicFix AI" : "Welcome Back"}
+              {isSignup ? "Join CivicFix" : "Welcome Back"}
             </h1>
             <p className="text-sm text-text-muted mt-1">Improving your community</p>
           </div>

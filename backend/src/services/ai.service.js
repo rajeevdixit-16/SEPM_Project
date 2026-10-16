@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { fallbackClassify } from "./fallbackClassifier.js";
 
 const VALID_CATEGORIES = [
   "road", "garbage", "drainage", "lighting",
@@ -58,6 +59,21 @@ function parseAndValidate(raw) {
     confidence: parsed.confidence,
     keywords: parsed.keywords,
     rejectionReason: null,
+  };
+}
+
+// Keyword-based fallback used when the AI model is unavailable or returns an
+// unparseable response, so reports are still categorized (marked "fallback").
+function fallbackResult(description) {
+  const fb = fallbackClassify(description);
+  return {
+    isRelevant: true,
+    descriptionMatches: true,
+    category: fb.category,
+    severity: fb.severity,
+    confidence: fb.confidence,
+    keywords: fb.keywords,
+    source: "fallback",
   };
 }
 
@@ -141,7 +157,7 @@ If both pass:
 
     if (!validated) {
       console.error("OpenAI response validation failed for raw:", raw);
-      return { aiUnavailable: true };
+      return fallbackResult(description);
     }
 
     if (validated.isRelevant === false) {
@@ -172,6 +188,6 @@ If both pass:
     if (error.status) console.error("OpenAI Status Code:", error.status);
     if (error.code) console.error("OpenAI Error Code:", error.code);
 
-    return { aiUnavailable: true };
+    return fallbackResult(description);
   }
 };

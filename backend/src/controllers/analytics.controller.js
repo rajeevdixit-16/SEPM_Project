@@ -1,9 +1,14 @@
 import Complaint from "../models/complaint.model.js";
+import { ApiError } from "../utils/ApiError.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
-export const getAuthorityAnalytics = async (req, res) => {
-  try {
-    const wardId = req.user.wardId;
-    const complaints = await Complaint.find({ wardId });
+export const getAuthorityAnalytics = asyncHandler(async (req, res) => {
+  if (req.user.role !== "authority" && req.user.role !== "admin") {
+    throw new ApiError(403, "Access denied");
+  }
+
+  const wardId = req.user.wardId;
+  const complaints = await Complaint.find({ wardId });
 
     // 1. Category count
     const categoryMap = {};
@@ -69,14 +74,11 @@ export const getAuthorityAnalytics = async (req, res) => {
       });
     }
 
-    res.json({
-      categoryMap,
-      priority,
-      status,
-      avgResolutionTime: avgResolutionTime.toFixed(1),
-      trend,
-    });
-  } catch (err) {
-    res.status(500).json({ message: "Analytics failed" });
-  }
-};
+  res.json({
+    categoryMap,
+    priority,
+    status,
+    avgResolutionTime: avgResolutionTime.toFixed(1),
+    trend,
+  });
+});

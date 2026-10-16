@@ -22,7 +22,6 @@ export default function App() {
   const viewIssue = useAppStore((state) => state.viewIssue);
 
   const userRole = useAuthStore((state) => state.userRole);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const login = useAuthStore((state) => state.login);
   const logout = useAuthStore((state) => state.logout);
 
