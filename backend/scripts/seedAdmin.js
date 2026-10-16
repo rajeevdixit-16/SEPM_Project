@@ -13,7 +13,7 @@ const EMAIL = process.env.ADMIN_EMAIL || "admin@civicfix.com";
 const PASSWORD = process.env.ADMIN_PASSWORD || "Admin@123";
 const NAME = process.env.ADMIN_NAME || "System Admin";
 
-await mongoose.connect(`${process.env.MONGODB_URI}?dbName=${DB_NAME}`);
+await mongoose.connect(process.env.MONGODB_URI, { dbName: DB_NAME });
 console.log("Connected to DB:", mongoose.connection.name);
 
 const existing = await User.findOne({ email: EMAIL });

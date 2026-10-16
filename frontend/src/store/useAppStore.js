@@ -1,6 +1,24 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
+// Transient runtime state that must NOT survive a reload (stale location / GPS
+// / report data was being restored and shown for a new session).
+const TRANSIENT_STATE_KEYS = [
+  "reportFile",
+  "reportImage",
+  "editingIssue",
+  "selectedIssue",
+  "selectedLocation",
+  "currentAddress",
+  "currentCity",
+  "currentWard",
+  "gpsLocation",
+  "gpsAccuracy",
+  "gpsAvailable",
+  "gpsError",
+  "gpsLoading",
+];
+
 export const useAppStore = create(
   persist(
     (set) => ({
@@ -39,6 +57,14 @@ export const useAppStore = create(
 
       clearSelectedLocation: () => set({ selectedLocation: null }),
 
+      clearLocationContext: () =>
+        set({
+          selectedLocation: null,
+          currentAddress: "Select a location",
+          currentCity: null,
+          currentWard: null,
+        }),
+
       setReportImage: (image) => set({ reportImage: image }),
       clearReportImage: () => set({ reportImage: null }),
       setReportFile: (file) => set({ reportFile: file }),
@@ -55,14 +81,26 @@ export const useAppStore = create(
           reportImage: null,
           reportFile: null,
           editingIssue: null,
+          currentAddress: "Select a location",
+          currentCity: null,
+          currentWard: null,
         }),
     }),
     {
       name: "civicfix-app-storage",
       storage: createJSONStorage(() => localStorage),
+      version: 2,
+      migrate: (persisted) => {
+        if (!persisted || typeof persisted !== "object") return {};
+        const clean = { ...persisted };
+        for (const key of TRANSIENT_STATE_KEYS) delete clean[key];
+        return clean;
+      },
       partialize: (state) =>
         Object.fromEntries(
-          Object.entries(state).filter(([key]) => !["reportFile"].includes(key))
+          Object.entries(state).filter(
+            ([key]) => !TRANSIENT_STATE_KEYS.includes(key)
+          )
         ),
     }
   )

@@ -300,6 +300,7 @@ export function MapView() {
   const navigate = useAppStore((state) => state.navigate);
   const setCurrentAddress = useAppStore((state) => state.setCurrentAddress);
   const setSelectedLocation = useAppStore((state) => state.setSelectedLocation);
+  const clearLocationContext = useAppStore((state) => state.clearLocationContext);
   const selectedLocation = useAppStore((state) => state.selectedLocation);
   const gpsLocation = useAppStore((state) => state.gpsLocation);
   const gpsAvailable = useAppStore((state) => state.gpsAvailable);
@@ -354,6 +355,7 @@ export function MapView() {
   const handleLocationSelect = useCallback(
     async (lat, lng) => {
       setNewIssueLocation({ lat, lng });
+      clearLocationContext();
       setIsGeocoding(true);
       try {
         const res = await fetch(
@@ -377,7 +379,7 @@ export function MapView() {
         setIsGeocoding(false);
       }
     },
-    [setCurrentAddress, setSelectedLocation]
+    [setCurrentAddress, setSelectedLocation, clearLocationContext]
   );
 
   const handleLocateUser = () => {
@@ -516,7 +518,7 @@ export function MapView() {
             <LayersControl position="topright">
               <LayersControl.BaseLayer checked name="Street View">
                 <TileLayer
-                  url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   attribution="&copy; OpenStreetMap"
                 />
               </LayersControl.BaseLayer>

@@ -10,7 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 dotenv.config();
 
-await mongoose.connect(`${process.env.MONGODB_URI}?dbName=${DB_NAME}`);
+await mongoose.connect(process.env.MONGODB_URI, { dbName: DB_NAME });
 console.log("Connected to DB:", mongoose.connection.name);
 
 const CITIES = {
@@ -23,10 +23,10 @@ const selected = cityArg ? [cityArg.split("=")[1].toLowerCase()] : Object.keys(C
 
 async function importCity(city) {
   const config = CITIES[city];
-  if (!config) return console.log(`⚠️ Unknown city: ${city}`);
+  if (!config) return console.log(`Unknown city: ${city}`);
 
   const filePath = path.resolve(__dirname, "../data", config.file);
-  if (!fs.existsSync(filePath)) return console.log(`⚠️ File not found: ${filePath}`);
+  if (!fs.existsSync(filePath)) return console.log(`File not found: ${filePath}`);
 
   const geojson = JSON.parse(fs.readFileSync(filePath, "utf-8"));
   let inserted = 0;
@@ -47,7 +47,7 @@ async function importCity(city) {
     inserted++;
   }
 
-  console.log(`📌 ${config.name}: Inserted ${inserted}, Skipped ${skipped}`);
+  console.log(`${config.name}: Inserted ${inserted}, Skipped ${skipped}`);
   return inserted;
 }
 
@@ -58,12 +58,12 @@ async function importAll() {
   }
 
   await Ward.collection.createIndex({ boundary: "2dsphere" });
-  console.log("✅ 2dsphere index verified on boundary field");
-  console.log(`✅ Total new wards imported: ${total}`);
+  console.log("2dsphere index verified on boundary field");
+  console.log(`Total new wards imported: ${total}`);
   process.exit(0);
 }
 
 importAll().catch((err) => {
-  console.error("❌ Import failed:", err);
+  console.error("Import failed:", err);
   process.exit(1);
 });

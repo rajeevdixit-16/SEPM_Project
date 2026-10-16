@@ -63,8 +63,9 @@ export function ReportIssue() {
   const storeWard = useAppStore((state) => state.currentWard);
   const setSelectedLocation = useAppStore((state) => state.setSelectedLocation);
   const setCurrentAddress = useAppStore((state) => state.setCurrentAddress);
+  const setGpsState = useAppStore((state) => state.setGpsState);
+  const clearLocationContext = useAppStore((state) => state.clearLocationContext);
 
-  const gpsLocation = useAppStore((state) => state.gpsLocation);
   const image = useAppStore((state) => state.reportImage);
   const setImage = useAppStore((state) => state.setReportImage);
   const reportFile = useAppStore((state) => state.reportFile);
@@ -144,39 +145,63 @@ export function ReportIssue() {
         data.address.suburb ||
         data.address.neighbourhood ||
         data.address.road ||
+        data.address.hamlet ||
         `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      const city =
+        data.address.city ||
+        data.address.town ||
+        data.address.village ||
+        data.address.municipality ||
+        data.address.state_district ||
+        data.address.county ||
+        data.address.district ||
+        null;
       setCurrentAddress(area);
+      setGpsState({ currentCity: city, currentAddress: area });
     } catch {
       setCurrentAddress(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+      setGpsState({ currentCity: null });
     }
-  }, [setCurrentAddress]);
+  }, [setCurrentAddress, setGpsState]);
 
   const handleUseMyLocation = () => {
-    if (gpsLocation) {
-      setSelectedLocation(gpsLocation);
-      setLocationAttempted(true);
-      reverseGeocode(gpsLocation.lat, gpsLocation.lng);
-      return;
-    }
-
     if (!("geolocation" in navigator)) {
       toast.error("GPS not available in this browser");
       return;
     }
+
+    // Always request a fresh, high-accuracy fix. Reusing the cached gpsLocation
+    // caused a stale location from a previous session/area to be shown.
     setLocationLoading(true);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        const { latitude, longitude } = pos.coords;
+        const { latitude, longitude, accuracy } = pos.coords;
+        clearLocationContext();
+        setGpsState({
+          gpsLocation: { lat: latitude, lng: longitude },
+          gpsAccuracy: accuracy,
+          gpsAvailable: true,
+          gpsError: null,
+        });
         setSelectedLocation({ lat: latitude, lng: longitude });
         setLocationAttempted(true);
         await reverseGeocode(latitude, longitude);
         setLocationLoading(false);
       },
       () => {
-        toast.error("Could not get GPS position. Try the map selector.");
+        // Fall back to the last known fix only if a fresh one is unavailable.
+        const cached = useAppStore.getState().gpsLocation;
+        if (cached) {
+          clearLocationContext();
+          setSelectedLocation(cached);
+          setLocationAttempted(true);
+          reverseGeocode(cached.lat, cached.lng);
+        } else {
+          toast.error("Could not get GPS position. Try the map selector.");
+        }
         setLocationLoading(false);
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
@@ -216,6 +241,7 @@ export function ReportIssue() {
     if (!modalPickLocation) return;
 
     const { lat, lng } = modalPickLocation;
+    clearLocationContext();
     setSelectedLocation({ lat, lng });
     setLocationAttempted(true);
     await reverseGeocode(lat, lng);
@@ -695,7 +721,7 @@ export function ReportIssue() {
                 <LayersControl position="topright">
                   <LayersControl.BaseLayer checked name="Street View">
                     <TileLayer
-                      url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                       attribution="&copy; OpenStreetMap"
                     />
                   </LayersControl.BaseLayer>

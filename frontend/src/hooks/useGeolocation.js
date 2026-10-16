@@ -4,11 +4,30 @@ import { lookupWard } from "../services/ward.service";
 
 const GPS_STORAGE_KEY = "civicfix-gps-location";
 
+// A cached fix older than this is considered stale and ignored, otherwise the
+// app shows a location from a previous session/area (e.g. the wrong ward/city).
+const GPS_MAX_AGE_MS = 5 * 60 * 1000;
+
 function loadPersistedGps() {
   try {
     const raw = localStorage.getItem(GPS_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (
+      !parsed ||
+      typeof parsed.lat !== "number" ||
+      typeof parsed.lng !== "number"
+    ) {
+      return null;
+    }
+    if (parsed.timestamp && Date.now() - parsed.timestamp > GPS_MAX_AGE_MS) {
+      localStorage.removeItem(GPS_STORAGE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    /* ignore malformed storage */
+  }
   return null;
 }
 
@@ -18,7 +37,9 @@ function persistGps(lat, lng, accuracy) {
       GPS_STORAGE_KEY,
       JSON.stringify({ lat, lng, accuracy, timestamp: Date.now() })
     );
-  } catch {}
+  } catch {
+    /* storage unavailable */
+  }
 }
 
 async function reverseGeocode(lat, lng) {
@@ -33,12 +54,15 @@ async function reverseGeocode(lat, lng) {
     data.address.town ||
     data.address.village ||
     data.address.municipality ||
+    data.address.state_district ||
+    data.address.county ||
     data.address.district ||
     null;
   const locality =
     data.address.suburb ||
     data.address.neighbourhood ||
     data.address.road ||
+    data.address.hamlet ||
     null;
   return { city, locality, displayName: data.display_name };
 }

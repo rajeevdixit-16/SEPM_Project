@@ -1,7 +1,5 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 const VALID_CATEGORIES = [
   "road", "garbage", "drainage", "lighting",
   "water", "traffic", "infrastructure", "obstruction", "other",
@@ -65,6 +63,7 @@ function parseAndValidate(raw) {
 
 export const analyzeComplaintWithAI = async ({ imageUrl, description }) => {
   try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       response_format: { type: "json_object" },

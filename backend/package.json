@@ -4,7 +4,7 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon -r dotenv/config --experimental-json-modules src/index.js",
+    "dev": "nodemon -e js,json,env -r dotenv/config src/index.js",
     "seed": "node src/seed.js",
     "seed-admin": "node scripts/seedAdmin.js",
     "import-wards": "node scripts/importWards.js",

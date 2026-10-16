@@ -47,6 +47,34 @@ const generateGridWards = (city, bounds, rows, cols, names) => {
   };
 };
 
+// Rename the grid cell that contains a known point so a specific locality
+// (e.g. Jagdishpur) is guaranteed to produce a correctly named ward.
+const pointInFeature = (lng, lat, feature) => {
+  const ring = feature.geometry.coordinates[0];
+  const xs = ring.map((p) => p[0]);
+  const ys = ring.map((p) => p[1]);
+  return (
+    lng >= Math.min(...xs) &&
+    lng <= Math.max(...xs) &&
+    lat >= Math.min(...ys) &&
+    lat <= Math.max(...ys)
+  );
+};
+
+const applyNamedPoints = (geojson, points) => {
+  for (const point of points) {
+    const feature = geojson.features.find((f) =>
+      pointInFeature(point.lng, point.lat, f)
+    );
+    if (feature) {
+      feature.properties.ward_name = point.name;
+    } else {
+      console.warn(`No grid cell found for ${point.name} (${point.lat}, ${point.lng}) — expand the city bounds.`);
+    }
+  }
+  return geojson;
+};
+
 const prayagrajNames = [
   "Civil Lines", "Teliyarganj", "Old Cantt", "Govindpur", "Ashok Nagar",
   "Mumfordganj", "George Town", "Chowk", "Daraganj", "Jhunsi",
@@ -84,15 +112,21 @@ const gorakhpurNames = [
 ];
 
 const prayagrajBounds = { minLng: 81.78, maxLng: 81.93, minLat: 25.38, maxLat: 25.55 };
-const gorakhpurBounds = { minLng: 83.34, maxLng: 83.44, minLat: 26.70, maxLat: 26.82 };
+// Extended east to include the Jagdishpur locality (Chauri Chaura, 83.5415, 26.7435).
+const gorakhpurBounds = { minLng: 83.28, maxLng: 83.62, minLat: 26.64, maxLat: 26.94 };
 
 const prayagraj = generateGridWards("Prayagraj", prayagrajBounds, 8, 10, prayagrajNames);
 const gorakhpur = generateGridWards("Gorakhpur", gorakhpurBounds, 7, 10, gorakhpurNames);
+
+// Ensure the Jagdishpur locality resolves to a ward named "Jagdishpur".
+applyNamedPoints(gorakhpur, [
+  { name: "Jagdishpur", lng: 83.5415, lat: 26.7435 },
+]);
 
 const dataDir = path.resolve(__dirname, "../data");
 fs.writeFileSync(`${dataDir}/prayagraj.geojson`, JSON.stringify(prayagraj, null, 2));
 fs.writeFileSync(`${dataDir}/gorakhpur.geojson`, JSON.stringify(gorakhpur, null, 2));
 
-console.log(`✅ Generated ${prayagraj.features.length} Prayagraj wards`);
-console.log(`✅ Generated ${gorakhpur.features.length} Gorakhpur wards`);
-console.log("✅ Files saved to backend/data/");
+console.log(`Generated ${prayagraj.features.length} Prayagraj wards`);
+console.log(`Generated ${gorakhpur.features.length} Gorakhpur wards`);
+console.log("Files saved to backend/data/");

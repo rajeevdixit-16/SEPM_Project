@@ -1,13 +1,12 @@
-import dotenv from "dotenv";
+// Load env vars FIRST so modules that read process.env at import time
+// (e.g. db/cloudinary.js) get the values before they are evaluated.
+import "dotenv/config";
 
 // mongodb connection
 import connectDB from "./db/connection.js";
 
 // this file will handle core routing logic and route controllers
 import { app } from "./app.js";
-
-// dotenv for env variables access throughout the project
-dotenv.config({ path: "./.env" });
 
 const PORT = process.env.PORT || 8000;
 

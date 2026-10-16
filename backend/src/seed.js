@@ -74,7 +74,7 @@ const lucknowWards = [
 
 const seedDB = async () => {
   try {
-    await mongoose.connect(`${process.env.MONGODB_URI}?dbName=${DB_NAME}`);
+    await mongoose.connect(process.env.MONGODB_URI, { dbName: DB_NAME });
     console.log("Connected to MongoDB...");
 
     // Clear old wards to avoid duplicates
@@ -84,7 +84,7 @@ const seedDB = async () => {
     await Ward.collection.createIndex({ boundary: "2dsphere" });
 
     await Ward.insertMany(lucknowWards);
-    console.log("✅ Lucknow Test Wards Seeded!");
+    console.log("Lucknow Test Wards Seeded!");
     process.exit();
   } catch (err) {
     console.error(err);

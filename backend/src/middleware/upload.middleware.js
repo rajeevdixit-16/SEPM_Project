@@ -1,5 +1,5 @@
 import multer from "multer";
-import cloudinary from "../db/cloudinary.js";
+import { configureCloudinary } from "../db/cloudinary.js";
 import { ApiError } from "../utils/ApiError.js";
 import { v4 as uuid } from "uuid";
 
@@ -25,6 +25,10 @@ export const uploadImage = async (req, res, next) => {
 
     // Convert buffer to Base64 for Cloudinary upload
     const base64File = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+
+    // Configure Cloudinary now (not at import time) so env vars are guaranteed
+    // to be loaded regardless of startup order.
+    const cloudinary = configureCloudinary();
 
     const result = await cloudinary.uploader.upload(base64File, {
       folder: "civicfix_issues",
